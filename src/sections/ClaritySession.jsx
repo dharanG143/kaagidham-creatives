@@ -1,4 +1,14 @@
 import React from 'react'
+import { motion, useReducedMotion } from 'framer-motion'
+import {
+  EASE,
+  VIEWPORT,
+  stagger,
+  fadeUp,
+  lineGrow,
+  serviceCard,
+  listItem,
+} from '../lib/motion'
 
 const services = [
   {
@@ -51,43 +61,91 @@ const services = [
   },
 ]
 
+// Created once, not on every render
+const headerStagger = stagger(0.1)
+
+// Yellow marker sweeps in left to right, after the heading has landed
+const highlightSweep = {
+  hidden: { backgroundSize: '0% 100%' },
+  show: {
+    backgroundSize: '100% 100%',
+    transition: { duration: 0.7, ease: EASE, delay: 0.35 },
+  },
+}
+
+// Reduced motion: marker is simply there
+const highlightStatic = {
+  hidden: { backgroundSize: '100% 100%' },
+  show: { backgroundSize: '100% 100%' },
+}
+
 const ClaritySession = () => {
+  const reduce = useReducedMotion()
+
   return (
     <section id="services" className="w-full scroll-mt-16 bg-cream">
       <div className="mx-auto w-full max-w-[1009px] px-5 pb-12 pt-2 sm:px-5 lg:px-5">
-        {/* Eyebrow */}
-        <div className="flex items-center gap-3">
-          <span className="block h-[4px] w-[24px] bg-yellow" />
-          <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-black">
-            What We Do
-          </span>
-        </div>
+        {/* Heading block: eyebrow + heading + paragraph */}
+        <motion.div
+          variants={headerStagger}
+          initial="hidden"
+          whileInView="show"
+          viewport={VIEWPORT}
+        >
+          {/* Eyebrow */}
+          <div className="flex items-center gap-3">
+            <motion.span
+              variants={lineGrow}
+              className="block h-[4px] w-[24px] origin-left bg-yellow"
+            />
+            <motion.span
+              variants={fadeUp}
+              className="text-[11px] font-bold uppercase tracking-[0.16em] text-black"
+            >
+              What We Do
+            </motion.span>
+          </div>
 
-        {/* Heading */}
-        <h2 className="mt-[14px] text-[26px] font-extrabold leading-[1.1] tracking-[-0.01em] text-black min-[400px]:text-[34px] sm:text-[42px] md:text-[48px]">
-          Four services.{' '}
-          <span
-            className="inline-block px-[6px]"
-            style={{
-              backgroundImage:
-                'linear-gradient(to bottom, transparent 62%, var(--color-yellow) 62%, var(--color-yellow) 96%, transparent 96%)',
-            }}
+          {/* Heading */}
+          <motion.h2
+            variants={fadeUp}
+            className="mt-[14px] text-[26px] font-extrabold leading-[1.1] tracking-[-0.01em] text-black min-[400px]:text-[34px] sm:text-[42px] md:text-[48px]"
           >
-            One clear direction.
-          </span>
-        </h2>
+            Four services.{' '}
+            <motion.span
+              variants={reduce ? highlightStatic : highlightSweep}
+              className="inline-block px-[6px]"
+              style={{
+                backgroundImage:
+                  'linear-gradient(to bottom, transparent 62%, var(--color-yellow) 62%, var(--color-yellow) 96%, transparent 96%)',
+                backgroundRepeat: 'no-repeat',
+              }}
+            >
+              One clear direction.
+            </motion.span>
+          </motion.h2>
 
-        {/* Paragraph */}
-        <p className="mt-[18px] max-w-[560px] text-[16px] font-normal leading-[28px] text-[#555555] sm:text-[18px]">
-          From the first strategic thought to the final creative asset, our work
-          combines business understanding with thoughtful design.
-        </p>
+          {/* Paragraph */}
+          <motion.p
+            variants={fadeUp}
+            className="mt-[18px] max-w-[560px] text-[16px] font-normal leading-[28px] text-[#555555] sm:text-[18px]"
+          >
+            From the first strategic thought to the final creative asset, our work
+            combines business understanding with thoughtful design.
+          </motion.p>
+        </motion.div>
 
         {/* Cards */}
         <div className="mt-[48px] grid grid-cols-1 gap-[19px] md:grid-cols-2">
-          {services.map(({ number, title, description, points }) => (
-            <div
+          {services.map(({ number, title, description, points }, i) => (
+            <motion.div
               key={number}
+              variants={serviceCard}
+              custom={(i % 2) * 0.12}
+              initial="hidden"
+              whileInView="show"
+              viewport={VIEWPORT}
+              whileHover={{ y: -4, transition: { duration: 0.25, ease: EASE } }}
               className="rounded-[24px] border border-black bg-white px-5 pb-[24px] pt-[26px] sm:px-[28px]"
             >
               <p className="text-[34px] font-extrabold leading-[1.1] text-yellow">
@@ -106,17 +164,21 @@ const ClaritySession = () => {
 
               <ul className="mt-[14px] flex flex-col gap-[10px]">
                 {points.map((point) => (
-                  <li key={point} className="flex items-center gap-[12px]">
+                  <motion.li
+                    key={point}
+                    variants={listItem}
+                    className="flex items-center gap-[12px]"
+                  >
                     <span className="flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-full bg-yellow text-[11px] font-bold leading-none text-black">
                       ✓
                     </span>
                     <span className="text-[14px] font-medium leading-[20px] text-black sm:text-[15px]">
                       {point}
                     </span>
-                  </li>
+                  </motion.li>
                 ))}
               </ul>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>

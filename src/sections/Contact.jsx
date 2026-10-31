@@ -1,5 +1,7 @@
 import React, { useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { MapPin, Mail, Phone } from "lucide-react";
+import { EASE, VIEWPORT, stagger, fadeUp, buttonMotion } from "../lib/motion";
 
 /* The reference screenshots have no phone input. Phone validation is fully
    implemented, but the field only renders when this is set to true. */
@@ -72,7 +74,56 @@ const validateField = (field, rawValue) => {
 
 const FIELD_ORDER = ["name", "email", "phone", "subject", "message"];
 
+/* ------------------------------------------------------------------ */
+/*  Motion setup (created once, not on every render)                   */
+/* ------------------------------------------------------------------ */
+
+const headerStagger = stagger(0.1);
+const formStagger = stagger(0.07);
+const infoStagger = stagger(0.12);
+
+// Yellow marker sweeps in left to right, after the heading has landed
+const highlightSweep = {
+  hidden: { backgroundSize: "0% 100%" },
+  show: {
+    backgroundSize: "100% 100%",
+    transition: { duration: 0.7, ease: EASE, delay: 0.35 },
+  },
+};
+
+// Reduced motion: marker is simply there
+const highlightStatic = {
+  hidden: { backgroundSize: "100% 100%" },
+  show: { backgroundSize: "100% 100%" },
+};
+
+// Icon circles pop in just after their row starts
+const iconPop = {
+  hidden: { opacity: 0, scale: 0.6 },
+  show: {
+    opacity: 1,
+    scale: 1,
+    transition: { duration: 0.45, ease: [0.34, 1.56, 0.64, 1], delay: 0.15 },
+  },
+};
+
+// Defined OUTSIDE Contact so it isn't remounted on every render
+// (otherwise the fade would replay on every keystroke).
+const ErrorText = ({ field, message }) =>
+  message ? (
+    <motion.p
+      id={`contact-${field}-error`}
+      initial={{ opacity: 0, y: -4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: EASE }}
+      className="mt-1.5 px-1 text-[13px] font-medium leading-snug text-red-600"
+    >
+      {message}
+    </motion.p>
+  ) : null;
+
 const Contact = () => {
+  const reduce = useReducedMotion();
   const [values, setValues] = useState(INITIAL_VALUES);
   const [errors, setErrors] = useState({});
   const [success, setSuccess] = useState(false);
@@ -122,16 +173,6 @@ const Contact = () => {
       errors[field] ? "border-red-600" : "border-black"
     }`;
 
-  const ErrorText = ({ field }) =>
-    errors[field] ? (
-      <p
-        id={`contact-${field}-error`}
-        className="mt-1.5 px-1 text-[13px] font-medium leading-snug text-red-600"
-      >
-        {errors[field]}
-      </p>
-    ) : null;
-
   const ariaProps = (field) => ({
     "aria-invalid": errors[field] ? "true" : "false",
     "aria-describedby": errors[field] ? `contact-${field}-error` : undefined,
@@ -145,30 +186,50 @@ const Contact = () => {
       <div className=" grid w-full grid-cols-1 gap-x-[41px] gap-y-12 px-5 py-6 sm:px-[43px] lg:grid-cols-[minmax(0,1fr)_300px] min-[1440px]:grid-cols-[minmax(0,568px)_1fr]">
         {/* Left column */}
         <div>
-          <h2 className="max-w-[500px] text-[30px] font-extrabold leading-[1.1] tracking-[-0.01em] text-black min-[400px]:text-[38px] sm:text-[46px] md:text-[50px]">
-            Have a creative project{" "}
-            <span
-              className="inline-block px-[6px]"
-              style={{
-                backgroundImage:
-                  "linear-gradient(to bottom, transparent 62%, var(--color-yellow) 62%, var(--color-yellow) 96%, transparent 96%)",
-              }}
+          {/* Heading block */}
+          <motion.div
+            variants={headerStagger}
+            initial="hidden"
+            whileInView="show"
+            viewport={VIEWPORT}
+          >
+            <motion.h2
+              variants={fadeUp}
+              className="max-w-[500px] text-[30px] font-extrabold leading-[1.1] tracking-[-0.01em] text-black min-[400px]:text-[38px] sm:text-[46px] md:text-[50px]"
             >
-              in mind?
-            </span>
-          </h2>
+              Have a creative project{" "}
+              <motion.span
+                variants={reduce ? highlightStatic : highlightSweep}
+                className="inline-block px-[6px]"
+                style={{
+                  backgroundImage:
+                    "linear-gradient(to bottom, transparent 62%, var(--color-yellow) 62%, var(--color-yellow) 96%, transparent 96%)",
+                  backgroundRepeat: "no-repeat",
+                }}
+              >
+                in mind?
+              </motion.span>
+            </motion.h2>
 
-          <p className="mt-4 max-w-[520px] text-[18px] font-normal leading-[31px] text-[#555555] md:text-[20px]">
-            Let’s turn your ideas into meaningful, purpose-driven creative work.
-          </p>
+            <motion.p
+              variants={fadeUp}
+              className="mt-4 max-w-[520px] text-[18px] font-normal leading-[31px] text-[#555555] md:text-[20px]"
+            >
+              Let’s turn your ideas into meaningful, purpose-driven creative work.
+            </motion.p>
+          </motion.div>
 
-          <form
+          <motion.form
+            variants={formStagger}
+            initial="hidden"
+            whileInView="show"
+            viewport={VIEWPORT}
             onSubmit={handleSubmit}
             noValidate
             className="mt-[30px] flex flex-col gap-[15px]"
           >
             {/* Name */}
-            <div>
+            <motion.div variants={fadeUp}>
               <input
                 id="contact-name"
                 type="text"
@@ -181,11 +242,11 @@ const Contact = () => {
                 className={`${inputClass("name")} h-[56px]`}
                 {...ariaProps("name")}
               />
-              <ErrorText field="name" />
-            </div>
+              <ErrorText field="name" message={errors.name} />
+            </motion.div>
 
             {/* Email */}
-            <div>
+            <motion.div variants={fadeUp}>
               <input
                 id="contact-email"
                 type="email"
@@ -198,12 +259,12 @@ const Contact = () => {
                 className={`${inputClass("email")} h-[56px]`}
                 {...ariaProps("email")}
               />
-              <ErrorText field="email" />
-            </div>
+              <ErrorText field="email" message={errors.email} />
+            </motion.div>
 
             {/* Phone (hidden to match reference; set SHOW_PHONE_FIELD = true to enable) */}
             {SHOW_PHONE_FIELD && (
-              <div>
+              <motion.div variants={fadeUp}>
                 <input
                   id="contact-phone"
                   type="tel"
@@ -217,12 +278,12 @@ const Contact = () => {
                   className={`${inputClass("phone")} h-[56px]`}
                   {...ariaProps("phone")}
                 />
-                <ErrorText field="phone" />
-              </div>
+                <ErrorText field="phone" message={errors.phone} />
+              </motion.div>
             )}
 
             {/* Subject */}
-            <div>
+            <motion.div variants={fadeUp}>
               <select
                 id="contact-subject"
                 name="subject"
@@ -238,11 +299,11 @@ const Contact = () => {
                   </option>
                 ))}
               </select>
-              <ErrorText field="subject" />
-            </div>
+              <ErrorText field="subject" message={errors.subject} />
+            </motion.div>
 
             {/* Message */}
-            <div>
+            <motion.div variants={fadeUp}>
               <textarea
                 id="contact-message"
                 name="message"
@@ -253,35 +314,50 @@ const Contact = () => {
                 className={`${inputClass("message")} block h-[155px] resize-y py-[16px]`}
                 {...ariaProps("message")}
               />
-              <ErrorText field="message" />
-            </div>
+              <ErrorText field="message" message={errors.message} />
+            </motion.div>
 
             {/* Submit */}
-            <button
+            <motion.button
               type="submit"
+              variants={fadeUp}
+              {...buttonMotion}
               className="inline-flex h-[54px] w-fit items-center justify-center rounded-full border-2 border-black bg-yellow px-[26px] text-[15px] font-bold text-black shadow-[4px_4px_0_0_#000]"
             >
               Send message →
-            </button>
+            </motion.button>
 
             {success && (
-              <p
+              <motion.p
                 role="status"
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, ease: EASE }}
                 className="text-[14px] font-semibold leading-snug text-green-700"
               >
                Message sent successfully!
-              </p>
+              </motion.p>
             )}
-          </form>
+          </motion.form>
         </div>
 
         {/* Right column */}
-        <div className="flex flex-col gap-[30px] lg:pt-[12px]">
+        <motion.div
+          variants={infoStagger}
+          initial="hidden"
+          whileInView="show"
+          viewport={VIEWPORT}
+          className="flex flex-col gap-[30px] lg:pt-[12px]"
+        >
           {/* Studio */}
-          <div className="flex items-start gap-4">
-            <span className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full border-2 border-black bg-yellow">
+          <motion.div variants={fadeUp} className="flex items-start gap-4">
+            <motion.span
+              variants={iconPop}
+              whileHover={{ scale: 1.08, transition: { duration: 0.2 } }}
+              className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full border-2 border-black bg-yellow"
+            >
               <MapPin size={20} strokeWidth={2} className="text-black" />
-            </span>
+            </motion.span>
             <div>
               <p className="text-[11px] font-semibold uppercase leading-[18px] tracking-[0.15em] text-[#555555]">
                 Studio
@@ -294,13 +370,17 @@ const Contact = () => {
                 Chennai - 600094
               </p>
             </div>
-          </div>
+          </motion.div>
 
           {/* Email */}
-          <div className="flex items-start gap-4">
-            <span className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full border-2 border-black bg-yellow">
+          <motion.div variants={fadeUp} className="flex items-start gap-4">
+            <motion.span
+              variants={iconPop}
+              whileHover={{ scale: 1.08, transition: { duration: 0.2 } }}
+              className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full border-2 border-black bg-yellow"
+            >
               <Mail size={20} strokeWidth={2} className="text-black" />
-            </span>
+            </motion.span>
             <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase leading-[18px] tracking-[0.15em] text-[#555555]">
                 Email
@@ -312,13 +392,17 @@ const Contact = () => {
                 contact.kaagidhamcreatives@gmail.com
               </a>
             </div>
-          </div>
+          </motion.div>
 
           {/* Call or WhatsApp */}
-          <div className="flex items-start gap-4">
-            <span className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full border-2 border-black bg-yellow">
+          <motion.div variants={fadeUp} className="flex items-start gap-4">
+            <motion.span
+              variants={iconPop}
+              whileHover={{ scale: 1.08, transition: { duration: 0.2 } }}
+              className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full border-2 border-black bg-yellow"
+            >
               <Phone size={20} strokeWidth={2} className="text-black" />
-            </span>
+            </motion.span>
             <div>
               <p className="text-[11px] font-semibold uppercase leading-[18px] tracking-[0.15em] text-[#555555]">
                 Call or WhatsApp
@@ -338,8 +422,8 @@ const Contact = () => {
                 </a>
               </p>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       </div>
     </section>
   );
