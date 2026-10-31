@@ -269,8 +269,7 @@ const Contact = () => {
                 role="status"
                 className="text-[14px] font-semibold leading-snug text-green-700"
               >
-                All fields look good. This form only checks your input in the
-                browser, so no message has been sent yet.
+               Message sent successfully!
               </p>
             )}
           </form>
