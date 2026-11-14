@@ -42,12 +42,12 @@ const Footer = () => {
         {/* Logo */}
         <motion.div
           variants={fadeUp}
-          className="flex h-[60px] w-[180px] max-w-full items-center justify-center rounded-[14px] bg-white px-[12px] py-[6px]"
+          className="flex h-[70px] w-[185px] max-w-full items-center justify-center rounded-[14px] bg-white px-[12px] py-[6px]"
         >
           <img
             src={logo}
             alt="Kaagidham Creatives"
-            className="h-full w-full object-contain"
+            className="h-full w-full object-contain "
           />
         </motion.div>
 
@@ -82,7 +82,7 @@ const Footer = () => {
           variants={fadeUp}
           className="mt-[25px] text-[12px] font-normal leading-[20px] text-[#8A8A8A] sm:text-[13px]"
         >
-          © 2026 Kaagidham Creatives Private Limited. All rights reserved. Developed by Dhamodharan B.
+          © 2026 Kaagidham Creatives Private Limited. All rights reserved.
         </motion.p>
       </motion.div>
     </footer>

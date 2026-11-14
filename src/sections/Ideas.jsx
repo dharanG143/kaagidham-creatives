@@ -1,7 +1,13 @@
-import React from 'react'
-import { motion, useReducedMotion } from 'framer-motion'
+import React, { useRef, useState } from 'react'
+import {
+  motion,
+  useAnimationFrame,
+  useInView,
+  useMotionValue,
+  useReducedMotion,
+  useTransform,
+} from 'framer-motion'
 import { EASE, VIEWPORT, stagger, fadeUp, lineGrow, cardReveal } from '../lib/motion'
-import piza from '../assets/piza.jpg'
 
 // Created once, not on every render
 const headerStagger = stagger(0.1)
@@ -21,50 +27,129 @@ const highlightStatic = {
   show: { backgroundSize: '100% 100%' },
 }
 
-// Image: slow zoom on card hover (clipped by the card's overflow-hidden)
-const imageZoom = {
-  hidden: { scale: 1 },
-  show: { scale: 1, transition: { duration: 0.6, ease: EASE } },
-  hover: { scale: 1.05, transition: { duration: 0.6, ease: EASE } },
+/* ------------------------------------------------------------------ */
+/*  Logo sources: easy to replace                                      */
+/*                                                                     */
+/*  To use your own logos, import them and swap the `src` values:      */
+/*    import acme from '../assets/logos/acme.svg'                      */
+/*    { name: 'Acme', src: acme }                                      */
+/*  Logos are shown on the card's black background, so white / light   */
+/*  logos work best. The placeholders below are white SVGs from the    */
+/*  Simple Icons CDN. Add or remove entries freely (10 to 20 works     */
+/*  well); the two rows split the list automatically.                  */
+/* ------------------------------------------------------------------ */
+
+const simpleIcon = (slug) => `https://cdn.simpleicons.org/${slug}/ffffff`
+
+const LOGOS = [
+  { name: 'Google', src: simpleIcon('google') },
+  { name: 'Apple', src: simpleIcon('apple') },
+  { name: 'Amazon', src: simpleIcon('amazon') },
+  { name: 'Netflix', src: simpleIcon('netflix') },
+  { name: 'Meta', src: simpleIcon('meta') },
+  { name: 'Adobe', src: simpleIcon('adobe') },
+  { name: 'Spotify', src: simpleIcon('spotify') },
+  { name: 'Nike', src: simpleIcon('nike') },
+  { name: 'Samsung', src: simpleIcon('samsung') },
+  { name: 'Tesla', src: simpleIcon('tesla') },
+  { name: 'Coca-Cola', src: simpleIcon('cocacola') },
+  { name: 'Airbnb', src: simpleIcon('airbnb') },
+  { name: 'Uber', src: simpleIcon('uber') },
+  { name: 'PayPal', src: simpleIcon('paypal') },
+]
+
+// Two rows, both moving right to left. Different speeds and start
+// positions keep them from looking mechanically in sync.
+const HALF = Math.ceil(LOGOS.length / 2)
+const MARQUEE_ROWS = [
+  { logos: LOGOS.slice(0, HALF), seconds: 40, startAt: 0 },
+  { logos: LOGOS.slice(HALF), seconds: 52, startAt: 0.5 },
+]
+
+// Fades logos in/out at the card edges
+const EDGE_MASK =
+  '[mask-image:linear-gradient(to_right,transparent,#000_10%,#000_90%,transparent)]'
+
+const LogoItem = ({ name, src, decorative = false }) => (
+  <li className="flex h-14 w-[120px] shrink-0 items-center justify-center px-5 sm:h-16 sm:w-[150px] sm:px-6 md:h-[72px] md:w-[180px] md:px-8">
+    <img
+      src={src}
+      alt={decorative ? '' : name}
+      draggable={false}
+      // If a logo fails to load, hide its slot instead of showing a broken icon
+      onError={(e) => {
+        e.currentTarget.parentElement.style.display = 'none'
+      }}
+      className="h-7 w-full object-contain opacity-60 transition duration-300 ease-out hover:scale-110 hover:opacity-100 sm:h-8 md:h-9"
+    />
+  </li>
+)
+
+// One seamless row: the logo set is rendered twice and the track slides
+// left by exactly one set (-50%), then wraps back to 0.
+const LogoRow = ({ logos, seconds, startAt, playing }) => {
+  const progress = useMotionValue(startAt)
+  const x = useTransform(progress, [0, 1], ['0%', '-50%'])
+
+  useAnimationFrame((_, delta) => {
+    if (!playing) return
+    // delta is capped so returning to a background tab does not cause a jump
+    progress.set((progress.get() + Math.min(delta, 64) / (seconds * 1000)) % 1)
+  })
+
+  return (
+    <motion.div style={{ x }} className="flex w-max will-change-transform">
+      <ul className="flex shrink-0">
+        {logos.map((logo) => (
+          <LogoItem key={logo.name} {...logo} />
+        ))}
+      </ul>
+      <ul className="flex shrink-0" aria-hidden="true">
+        {logos.map((logo) => (
+          <LogoItem key={logo.name} {...logo} decorative />
+        ))}
+      </ul>
+    </motion.div>
+  )
 }
 
-// Badge fades in just after the card lands
-const badgeIn = {
-  hidden: { opacity: 0, y: -8 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.5, ease: EASE, delay: 0.4 },
-  },
-}
+const LogoShowcase = ({ reduce }) => {
+  const ref = useRef(null)
+  const inView = useInView(ref)
+  const [hovered, setHovered] = useState(false)
 
-// Arrow button fades in, then nudges up-right on card hover
-const arrowIn = {
-  hidden: { opacity: 0, scale: 0.7, x: 0, y: 0 },
-  show: {
-    opacity: 1,
-    scale: 1,
-    x: 0,
-    y: 0,
-    transition: { duration: 0.45, ease: EASE, delay: 0.5 },
-  },
-  hover: {
-    opacity: 1,
-    scale: 1,
-    x: 2,
-    y: -2,
-    transition: { duration: 0.25, ease: EASE },
-  },
-}
+  // Runs only while the card is on screen and not hovered
+  const playing = inView && !hovered
 
-// Caption rises into place, slightly after the badge
-const captionIn = {
-  hidden: { opacity: 0, y: 12 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.6, ease: EASE, delay: 0.45 },
-  },
+  return (
+    <motion.div
+      ref={ref}
+      variants={cardReveal}
+      initial="hidden"
+      whileInView="show"
+      viewport={VIEWPORT}
+      onHoverStart={() => setHovered(true)}
+      onHoverEnd={() => setHovered(false)}
+      role="group"
+      aria-label="Brand logos"
+      className="relative mt-[44px] w-full max-w-[1080px] overflow-hidden rounded-[22px] bg-black py-8 sm:py-10 md:rounded-[30px] md:py-12"
+    >
+      {reduce ? (
+        // Reduced motion: static, wrapped layout
+        <ul className="flex flex-wrap items-center justify-center px-3 sm:px-6">
+          {LOGOS.map((logo) => (
+            <LogoItem key={logo.name} {...logo} />
+          ))}
+        </ul>
+      ) : (
+        <div className={`flex flex-col gap-4 sm:gap-6 ${EDGE_MASK}`}>
+          {MARQUEE_ROWS.map((row, i) => (
+            <LogoRow key={i} {...row} playing={playing} />
+          ))}
+        </div>
+      )}
+    </motion.div>
+  )
 }
 
 const Ideas = () => {
@@ -114,55 +199,8 @@ const Ideas = () => {
           </motion.h2>
         </motion.div>
 
-        {/* Card */}
-        <motion.div
-          variants={cardReveal}
-          initial="hidden"
-          whileInView="show"
-          whileHover="hover"
-          viewport={VIEWPORT}
-          className="relative mt-[44px] aspect-[4/3] w-full max-w-[1080px] overflow-hidden rounded-[22px] bg-black sm:aspect-[3/2] md:aspect-[1080/690] md:rounded-[30px]"
-        >
-          <motion.img
-            variants={imageZoom}
-            src={piza}
-            alt="Pizza Story brand identity, packaging and street campaign"
-            className="absolute inset-0 h-full w-full object-cover"
-          />
-
-          {/* Bottom gradient overlay */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[45%] bg-gradient-to-t from-black via-black/80 to-transparent" />
-
-          {/* Badge */}
-          <motion.span
-            variants={badgeIn}
-            className="absolute left-4 top-4 inline-flex h-[24px] items-center rounded-full bg-yellow px-3 text-[10px] font-extrabold uppercase tracking-[0.06em] text-black sm:left-[30px] sm:top-[36px] sm:px-[12px] sm:text-[12px]"
-          >
-            Brand Identity &amp; OOH
-          </motion.span>
-
-          {/* Arrow button */}
-          <motion.span
-            variants={arrowIn}
-            className="absolute right-4 top-4 flex h-[32px] w-[32px] items-center justify-center rounded-full bg-white text-[12px] font-bold leading-none text-black sm:right-[34px] sm:top-[30px] sm:h-[36px] sm:w-[36px] sm:text-[14px]"
-          >
-            ↗
-          </motion.span>
-
-          {/* Caption */}
-          <motion.div
-            variants={captionIn}
-            className="absolute inset-x-0 bottom-0 px-4 pb-4 sm:px-[30px] sm:pb-[34px]"
-          >
-            <h3 className="text-[20px] font-bold leading-tight text-white sm:text-[26px] md:text-[28px]">
-              Pizza Story
-            </h3>
-            <p className="mt-2 text-[12px] font-medium leading-snug text-white/90 sm:mt-3 sm:text-[14px] md:text-[15px]">
-              Comprehensive Visual Identity, Packaging &amp; Chennai Street
-              Campaign
-            </p>
-          </motion.div>
-        </motion.div>
+        {/* Card: animated brand logo showcase */}
+        <LogoShowcase reduce={reduce} />
       </div>
     </section>
   )
