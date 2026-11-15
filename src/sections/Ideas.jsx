@@ -28,85 +28,83 @@ const highlightStatic = {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Logo sources: easy to replace                                      */
+/*  Logos                                                              */
 /*                                                                     */
-/*  To use your own logos, import them and swap the `src` values:      */
-/*    import acme from '../assets/logos/acme.svg'                      */
-/*    { name: 'Acme', src: acme }                                      */
-/*  Logos are shown on the card's black background, so white / light   */
-/*  logos work best. The placeholders below are white SVGs from the    */
-/*  Simple Icons CDN. Add or remove entries freely (10 to 20 works     */
-/*  well); the two rows split the list automatically.                  */
+/*  Every image inside src/assets/logos/ is imported automatically,    */
+/*  so no filenames are listed here. Add, remove or rename files in    */
+/*  that folder and the marquee updates by itself. Order is            */
+/*  alphabetical by filename; the alt text comes from the filename.    */
 /* ------------------------------------------------------------------ */
 
-const simpleIcon = (slug) => `https://cdn.simpleicons.org/${slug}/ffffff`
+const logoModules = import.meta.glob(
+  '../assets/logos/*.{png,jpg,jpeg,webp,avif,svg}',
+  { eager: true, import: 'default' }
+)
 
-const LOGOS = [
-  { name: 'Google', src: simpleIcon('google') },
-  { name: 'Apple', src: simpleIcon('apple') },
-  { name: 'Amazon', src: simpleIcon('amazon') },
-  { name: 'Netflix', src: simpleIcon('netflix') },
-  { name: 'Meta', src: simpleIcon('meta') },
-  { name: 'Adobe', src: simpleIcon('adobe') },
-  { name: 'Spotify', src: simpleIcon('spotify') },
-  { name: 'Nike', src: simpleIcon('nike') },
-  { name: 'Samsung', src: simpleIcon('samsung') },
-  { name: 'Tesla', src: simpleIcon('tesla') },
-  { name: 'Coca-Cola', src: simpleIcon('cocacola') },
-  { name: 'Airbnb', src: simpleIcon('airbnb') },
-  { name: 'Uber', src: simpleIcon('uber') },
-  { name: 'PayPal', src: simpleIcon('paypal') },
-]
+const LOGOS = Object.entries(logoModules).map(([path, src]) => ({
+  name: path
+    .split('/')
+    .pop()
+    .replace(/\.[^.]+$/, '')
+    .replace(/[-_]+/g, ' '),
+  src,
+}))
 
-// Two rows, both moving right to left. Different speeds and start
-// positions keep them from looking mechanically in sync.
-const HALF = Math.ceil(LOGOS.length / 2)
-const MARQUEE_ROWS = [
-  { logos: LOGOS.slice(0, HALF), seconds: 40, startAt: 0 },
-  { logos: LOGOS.slice(HALF), seconds: 52, startAt: 0.5 },
-]
+// One marquee "set" must be wider than the visible area or gaps appear.
+// If the folder has only a few logos, the list is repeated up to this many slots.
+const MIN_SLOTS = 8
 
-// Fades logos in/out at the card edges
+// Scroll speed: seconds per logo slot (same pixel speed whatever the logo count)
+const SECONDS_PER_LOGO = 2.8
+
+const MARQUEE_SET = LOGOS.length
+  ? Array.from(
+      { length: Math.max(MIN_SLOTS, LOGOS.length) },
+      (_, i) => LOGOS[i % LOGOS.length]
+    )
+  : []
+
+const LOOP_SECONDS = MARQUEE_SET.length * SECONDS_PER_LOGO
+
+// Fades logos in/out at the left and right edges (no visible background)
 const EDGE_MASK =
-  '[mask-image:linear-gradient(to_right,transparent,#000_10%,#000_90%,transparent)]'
+  '[mask-image:linear-gradient(to_right,transparent,#000_8%,#000_92%,transparent)]'
 
+// Fixed-size slot per logo: equal spacing, consistent size, no distortion
 const LogoItem = ({ name, src, decorative = false }) => (
-  <li className="flex h-14 w-[120px] shrink-0 items-center justify-center px-5 sm:h-16 sm:w-[150px] sm:px-6 md:h-[72px] md:w-[180px] md:px-8">
+  <li className="flex h-10 w-[110px] shrink-0 items-center justify-center px-4 sm:h-12 sm:w-[140px] sm:px-5 md:h-14 md:w-[170px] md:px-6">
     <img
       src={src}
       alt={decorative ? '' : name}
       draggable={false}
-      // If a logo fails to load, hide its slot instead of showing a broken icon
-      onError={(e) => {
-        e.currentTarget.parentElement.style.display = 'none'
-      }}
-      className="h-7 w-full object-contain opacity-60 transition duration-300 ease-out hover:scale-110 hover:opacity-100 sm:h-8 md:h-9"
+      decoding="async"
+      className="h-full w-full object-contain"
     />
   </li>
 )
 
-// One seamless row: the logo set is rendered twice and the track slides
-// left by exactly one set (-50%), then wraps back to 0.
-const LogoRow = ({ logos, seconds, startAt, playing }) => {
-  const progress = useMotionValue(startAt)
+// Seamless loop: the set is rendered twice and the track slides left by
+// exactly one set (-50%), then wraps back to 0.
+const LogoMarquee = ({ playing }) => {
+  const progress = useMotionValue(0)
   const x = useTransform(progress, [0, 1], ['0%', '-50%'])
 
   useAnimationFrame((_, delta) => {
     if (!playing) return
     // delta is capped so returning to a background tab does not cause a jump
-    progress.set((progress.get() + Math.min(delta, 64) / (seconds * 1000)) % 1)
+    progress.set((progress.get() + Math.min(delta, 64) / (LOOP_SECONDS * 1000)) % 1)
   })
 
   return (
     <motion.div style={{ x }} className="flex w-max will-change-transform">
       <ul className="flex shrink-0">
-        {logos.map((logo) => (
-          <LogoItem key={logo.name} {...logo} />
+        {MARQUEE_SET.map((logo, i) => (
+          <LogoItem key={`${logo.src}-${i}`} {...logo} />
         ))}
       </ul>
       <ul className="flex shrink-0" aria-hidden="true">
-        {logos.map((logo) => (
-          <LogoItem key={logo.name} {...logo} decorative />
+        {MARQUEE_SET.map((logo, i) => (
+          <LogoItem key={`${logo.src}-${i}`} {...logo} decorative />
         ))}
       </ul>
     </motion.div>
@@ -118,7 +116,9 @@ const LogoShowcase = ({ reduce }) => {
   const inView = useInView(ref)
   const [hovered, setHovered] = useState(false)
 
-  // Runs only while the card is on screen and not hovered
+  if (!LOGOS.length) return null
+
+  // Runs only while on screen and not hovered
   const playing = inView && !hovered
 
   return (
@@ -132,21 +132,19 @@ const LogoShowcase = ({ reduce }) => {
       onHoverEnd={() => setHovered(false)}
       role="group"
       aria-label="Brand logos"
-      className="relative mt-[44px] w-full max-w-[1080px] overflow-hidden rounded-[22px] bg-black py-8 sm:py-10 md:rounded-[30px] md:py-12"
+      className={`relative mt-[44px] w-full max-w-[1080px] overflow-hidden ${
+        reduce ? '' : EDGE_MASK
+      }`}
     >
       {reduce ? (
         // Reduced motion: static, wrapped layout
-        <ul className="flex flex-wrap items-center justify-center px-3 sm:px-6">
+        <ul className="flex flex-wrap items-center justify-center">
           {LOGOS.map((logo) => (
-            <LogoItem key={logo.name} {...logo} />
+            <LogoItem key={logo.src} {...logo} />
           ))}
         </ul>
       ) : (
-        <div className={`flex flex-col gap-4 sm:gap-6 ${EDGE_MASK}`}>
-          {MARQUEE_ROWS.map((row, i) => (
-            <LogoRow key={i} {...row} playing={playing} />
-          ))}
-        </div>
+        <LogoMarquee playing={playing} />
       )}
     </motion.div>
   )
@@ -199,7 +197,7 @@ const Ideas = () => {
           </motion.h2>
         </motion.div>
 
-        {/* Card: animated brand logo showcase */}
+        {/* Scrolling brand logos on the existing cream background */}
         <LogoShowcase reduce={reduce} />
       </div>
     </section>
