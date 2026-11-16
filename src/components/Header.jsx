@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { flushSync } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import logo from "../assets/kc-logo.png";
 import { EASE, stagger, listItem, buttonMotion } from "../lib/motion";
@@ -23,6 +24,8 @@ const menuStagger = stagger(0.06, 0.1); // mobile menu items
 
 function Header() {
   const [open, setOpen] = useState(false);
+  // True only when the menu was closed by tapping a link (see handleNavClick)
+  const [instantClose, setInstantClose] = useState(false);
 
   // Close the menu when the screen becomes desktop-sized
   useEffect(() => {
@@ -37,6 +40,25 @@ function Header() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  // Mobile link tap. The open menu sits inside the sticky header and pushes the
+  // page down. If it collapses over 300ms while the browser is already scrolling
+  // to the section, the section moves up underneath the scroll and the page
+  // lands too far down. So collapse it immediately, in the same render and
+  // before the browser's anchor scroll runs (no preventDefault: native anchor
+  // behaviour, scroll-margin-top and smooth scrolling stay as they are).
+  const handleNavClick = () => {
+    flushSync(() => {
+      setInstantClose(true);
+      setOpen(false);
+    });
+  };
+
+  // The toggle button keeps the normal animated open / close
+  const handleToggle = () => {
+    setInstantClose(false);
+    setOpen((o) => !o);
+  };
 
   return (
     <header className="sticky top-0 z-50 border-b-2 border-[#3836360a] bg-cream">
@@ -94,7 +116,7 @@ function Header() {
           variants={navItem}
           {...buttonMotion}
           type="button"
-          onClick={() => setOpen((o) => !o)}
+          onClick={handleToggle}
           aria-label={open ? "Close menu" : "Open menu"}
           aria-expanded={open}
           aria-controls="mobile-menu"
@@ -153,7 +175,11 @@ function Header() {
       {/* Mobile menu */}
       <div
         id="mobile-menu"
-        className={`grid overflow-hidden transition-all duration-300 ease-in-out md:hidden ${
+        className={`grid overflow-hidden md:hidden ${
+          instantClose
+            ? "transition-none"
+            : "transition-all duration-300 ease-in-out"
+        } ${
           open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
         }`}
       >
@@ -172,7 +198,7 @@ function Header() {
               >
                 <a
                   href={l.href}
-                  onClick={() => setOpen(false)}
+                  onClick={handleNavClick}
                   className="block py-4 text-lg font-medium text-[#1a1a1a]"
                 >
                   {l.label}
@@ -184,7 +210,7 @@ function Header() {
           <motion.div variants={listItem} className="px-5 pb-6 pt-5">
             <motion.a
               href="#contact"
-              onClick={() => setOpen(false)}
+              onClick={handleNavClick}
               whileTap={{ scale: 0.97 }}
               transition={{ duration: 0.2 }}
               className="block w-full rounded-full border-2 border-black bg-yellow py-4 text-center text-lg font-semibold text-black shadow-[4px_4px_0_0_#000]"
