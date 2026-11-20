@@ -1,7 +1,17 @@
 import React, { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
+import emailjs from "@emailjs/browser";
 import { MapPin, Mail, Phone } from "lucide-react";
 import { EASE, VIEWPORT, stagger, fadeUp, buttonMotion } from "../lib/motion";
+
+/* EmailJS configuration. The public key is designed to be used in the browser;
+   no private keys or passwords are stored here. */
+const EMAILJS_SERVICE_ID = "service_wrft8qw";
+const EMAILJS_TEMPLATE_ID = "template_35ec6zv";
+const EMAILJS_PUBLIC_KEY = "jM2Ic-mVLdyTB8Jza";
+
+const SEND_ERROR_MESSAGE =
+  "Sorry, your message could not be sent. Please try again.";
 
 /* The reference screenshots have no phone input. Phone validation is fully
    implemented, but the field only renders when this is set to true. */
@@ -127,11 +137,14 @@ const Contact = () => {
   const [values, setValues] = useState(INITIAL_VALUES);
   const [errors, setErrors] = useState({});
   const [success, setSuccess] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState("");
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setValues((prev) => ({ ...prev, [name]: value }));
     setSuccess(false);
+    setSendError("");
     // Re-validate live only for fields that currently show an error,
     // so the message disappears as soon as the input is corrected.
     if (errors[name]) {
@@ -145,8 +158,11 @@ const Contact = () => {
     setErrors((prev) => ({ ...prev, [name]: validateField(name, value) }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Prevent duplicate submissions while a send is in progress.
+    if (sending) return;
 
     const nextErrors = {};
     FIELD_ORDER.forEach((field) => {
@@ -158,14 +174,41 @@ const Contact = () => {
     const firstInvalid = FIELD_ORDER.find((field) => nextErrors[field]);
     if (firstInvalid) {
       setSuccess(false);
+      setSendError("");
       document.getElementById(`contact-${firstInvalid}`)?.focus();
       return;
     }
 
-    // Frontend-only: no backend or API call is made.
-    setSuccess(true);
-    setValues(INITIAL_VALUES);
-    setErrors({});
+    setSending(true);
+    setSuccess(false);
+    setSendError("");
+
+    try {
+      // Variable names must match the EmailJS template exactly:
+      // {{name}}, {{email}}, {{project_type}}, {{message}}
+      await emailjs.send(
+        EMAILJS_SERVICE_ID,
+        EMAILJS_TEMPLATE_ID,
+        {
+          name: values.name.trim(),
+          email: values.email.trim(),
+          project_type: values.subject.trim(),
+          message: values.message.trim(),
+        },
+        { publicKey: EMAILJS_PUBLIC_KEY }
+      );
+
+      // Only reached when EmailJS confirms the email was sent.
+      setSuccess(true);
+      setValues(INITIAL_VALUES);
+      setErrors({});
+    } catch (error) {
+      console.error("EmailJS send failed:", error);
+      setSuccess(false);
+      setSendError(SEND_ERROR_MESSAGE);
+    } finally {
+      setSending(false);
+    }
   };
 
   const inputClass = (field) =>
@@ -322,6 +365,8 @@ const Contact = () => {
               type="submit"
               variants={fadeUp}
               {...buttonMotion}
+              disabled={sending}
+              aria-busy={sending}
               className="inline-flex h-[54px] w-fit items-center justify-center rounded-full border-2 border-black bg-yellow px-[26px] text-[15px] font-bold text-black shadow-[4px_4px_0_0_#000]"
             >
               Send message →
@@ -336,6 +381,18 @@ const Contact = () => {
                 className="text-[14px] font-semibold leading-snug text-green-700"
               >
                Message sent successfully!
+              </motion.p>
+            )}
+
+            {sendError && (
+              <motion.p
+                role="alert"
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, ease: EASE }}
+                className="text-[14px] font-semibold leading-snug text-red-600"
+              >
+                {sendError}
               </motion.p>
             )}
           </motion.form>
